@@ -1,0 +1,5 @@
+---
+# Sensitive HPC connection vars — read from .env (see .env.example at repo root).
+# These apply to all hosts in the [hpc] group.
+ansible_user: "{{ lookup('env', 'CINECA_USER') }}"
+ansible_ssh_private_key_file: "{{ lookup('env', 'CINECA_SSH_KEY') | default('~/.ssh/cineca_key', true) }}"

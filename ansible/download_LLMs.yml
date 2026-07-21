@@ -1,0 +1,8 @@
+---
+- name: Download models on HPC
+  hosts: hpc
+  gather_facts: false
+  tasks:
+    - include_role:
+        name: vectoria
+        tasks_from: download_LLMs.yml

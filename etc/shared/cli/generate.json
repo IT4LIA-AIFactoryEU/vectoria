@@ -1,0 +1,28 @@
+{
+    "flag": [
+        {
+            "name": "--test-set-path",
+            "param": {
+                "type": "str",
+                "required": "True",
+                "help": "YAML file with question[] and ground_truth[] lists"
+            }
+        },
+        {
+            "name": "--index-path",
+            "param": {
+                "type": "str",
+                "required": "True",
+                "help": "Path to the tenant index directory"
+            }
+        },
+        {
+            "name": "--output-dir",
+            "param": {
+                "type": "str",
+                "required": "True",
+                "help": "Directory to save the generated answers JSON"
+            }
+        }
+    ]
+}

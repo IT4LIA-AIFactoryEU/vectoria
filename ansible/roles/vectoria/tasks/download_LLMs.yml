@@ -1,0 +1,101 @@
+---
+- name: Load configuration
+  include_vars:
+    file: config.yml
+
+- name: Create HuggingFace cache directories
+  shell: mkdir -p "{{ hf_vectoria_cache }}/hub" "{{ hf_models_dir }}/hub"
+
+# ── Vectoria models (embedder, reranker, docling) ─────────────────────────────
+# These are downloaded to a separate cache used by Vectoria workers (not vLLM).
+
+- name: Download embedding model
+  shell: |
+    export PATH="$HOME/.local/bin:$PATH"
+    export HF_HOME="{{ hf_vectoria_cache }}"
+    export HF_HUB_CACHE="{{ hf_vectoria_cache }}/hub"
+    cd "{{ vectoria_dir }}"
+    uv run hf download "{{ embedding_model }}"
+  environment:
+    PATH: "{{ ansible_env.HOME }}/.local/bin:{{ ansible_env.PATH }}"
+
+- name: Download reranker model
+  shell: |
+    export PATH="$HOME/.local/bin:$PATH"
+    export HF_HOME="{{ hf_vectoria_cache }}"
+    export HF_HUB_CACHE="{{ hf_vectoria_cache }}/hub"
+    cd "{{ vectoria_dir }}"
+    uv run hf download "{{ reranker_model }}"
+  environment:
+    PATH: "{{ ansible_env.HOME }}/.local/bin:{{ ansible_env.PATH }}"
+  when: reranker_enabled | bool
+
+- name: Download docling layout model
+  shell: |
+    export PATH="$HOME/.local/bin:$PATH"
+    export HF_HOME="{{ hf_vectoria_cache }}"
+    export HF_HUB_CACHE="{{ hf_vectoria_cache }}/hub"
+    cd "{{ vectoria_dir }}"
+    uv run hf download "{{ docling_layout_model }}"
+  environment:
+    PATH: "{{ ansible_env.HOME }}/.local/bin:{{ ansible_env.PATH }}"
+
+- name: Download docling models (fixed revision)
+  shell: |
+    export PATH="$HOME/.local/bin:$PATH"
+    export HF_HOME="{{ hf_vectoria_cache }}"
+    export HF_HUB_CACHE="{{ hf_vectoria_cache }}/hub"
+    cd "{{ vectoria_dir }}"
+    uv run hf download "{{ docling_models }}" --revision "{{ docling_models_revision }}"
+  environment:
+    PATH: "{{ ansible_env.HOME }}/.local/bin:{{ ansible_env.PATH }}"
+
+# ── LLM model (served by vLLM) ────────────────────────────────────────────────
+# Downloaded to a separate cache so vLLM can find it with HF_HUB_OFFLINE=1.
+# Uses --max-workers 4 to limit parallel downloads and avoid login node OOM.
+# Note: some models (e.g. Llama, Mistral) require accepting a licence on
+# huggingface.co and running `huggingface-cli login` first.
+
+- name: Download LLM model for vLLM
+  shell: |
+    export PATH="$HOME/.local/bin:$PATH"
+    export HF_HOME="{{ hf_models_dir }}"
+    export HF_HUB_CACHE="{{ hf_models_dir }}/hub"
+    cd "{{ vectoria_dir }}"
+    uv run hf download "{{ llm_model }}" --max-workers 4
+  environment:
+    PATH: "{{ ansible_env.HOME }}/.local/bin:{{ ansible_env.PATH }}"
+  async: 86400
+  poll: 60
+
+- name: Download GLiNER NER model for graph entity extraction
+  shell: |
+    export PATH="$HOME/.local/bin:$PATH"
+    export HF_HOME="{{ hf_vectoria_cache }}"
+    export HF_HUB_CACHE="{{ hf_vectoria_cache }}/hub"
+    cd "{{ vectoria_dir }}"
+    uv run hf download "{{ gliner_model }}"
+  environment:
+    PATH: "{{ ansible_env.HOME }}/.local/bin:{{ ansible_env.PATH }}"
+  when: graph_enabled | default(false) | bool
+
+- name: Download GLiNER base encoder (loaded internally by AutoTokenizer/AutoModel)
+  shell: |
+    export PATH="$HOME/.local/bin:$PATH"
+    export HF_HOME="{{ hf_vectoria_cache }}"
+    export HF_HUB_CACHE="{{ hf_vectoria_cache }}/hub"
+    cd "{{ vectoria_dir }}"
+    uv run hf download "{{ gliner_base_model }}"
+  environment:
+    PATH: "{{ ansible_env.HOME }}/.local/bin:{{ ansible_env.PATH }}"
+  when: graph_enabled | default(false) | bool
+
+- name: Download spaCy model for graph relation-label fallback
+  shell: |
+    export PATH="$HOME/.local/bin:$PATH"
+    cd "{{ vectoria_dir }}"
+    uv run python -m spacy download "{{ spacy_model }}"
+  environment:
+    PATH: "{{ ansible_env.HOME }}/.local/bin:{{ ansible_env.PATH }}"
+  when: graph_enabled | default(false) | bool
+

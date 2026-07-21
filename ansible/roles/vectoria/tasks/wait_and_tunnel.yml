@@ -1,0 +1,70 @@
+---
+# Wait for Vectoria + OpenWebUI on a compute node and open SSH tunnels locally.
+# Required vars: compute_node, vectoria_port, openwebui_node_port,
+#   vectoria_local_port, openwebui_local_port, ansible_user, ansible_host.
+
+- name: Wait for Vectoria to be ready
+  shell: >
+    srun --quiet --overlap --jobid {{ slurm_job_id }}
+    --nodes=1 --ntasks=1 --nodelist={{ compute_node }}
+    bash -c "curl -sf http://localhost:{{ vectoria_port }}/health"
+  register: vectoria_health
+  until: vectoria_health.rc == 0
+  retries: 80
+  delay: 15
+
+- name: Wait for OpenWebUI to be ready
+  shell: >
+    srun --quiet --overlap --jobid {{ slurm_job_id }}
+    --nodes=1 --ntasks=1 --nodelist={{ compute_node }}
+    bash -c "curl -sf http://localhost:{{ openwebui_node_port }}/"
+  register: openwebui_health
+  until: openwebui_health.rc == 0
+  retries: 40
+  delay: 15
+  failed_when: false
+
+- name: Warn if OpenWebUI did not start in time
+  debug:
+    msg: "WARNING: OpenWebUI not yet responding on {{ compute_node }}:{{ openwebui_node_port }} — tunnel will open anyway. Check job output for errors."
+  when: openwebui_health.rc != 0
+
+- name: Kill any stale tunnel from a previous deploy
+  shell: |
+    if [ -f /tmp/vectoria_tunnel.pid ]; then
+      old_pid=$(cat /tmp/vectoria_tunnel.pid)
+      if [ -n "$old_pid" ] && kill -0 "$old_pid" 2>/dev/null; then
+        kill "$old_pid" 2>/dev/null || true
+        sleep 1
+        kill -9 "$old_pid" 2>/dev/null || true
+      fi
+      rm -f /tmp/vectoria_tunnel.pid
+    fi
+  delegate_to: localhost
+
+- name: Open SSH tunnels from local machine
+  shell: |
+    nohup ssh -i ~/.ssh/cineca_key \
+      -L "0.0.0.0:{{ vectoria_local_port }}:{{ compute_node }}:{{ vectoria_port }}" \
+      -L "0.0.0.0:{{ openwebui_local_port }}:{{ compute_node }}:{{ openwebui_node_port }}" \
+      -o ServerAliveInterval=30 \
+      -o ServerAliveCountMax=3 \
+      -o ExitOnForwardFailure=yes \
+      -o StrictHostKeyChecking=no \
+      "{{ ansible_user }}@{{ ansible_host }}" -N \
+      > /tmp/vectoria_tunnel.log 2>&1 &
+    pid=$!
+    echo "$pid" > /tmp/vectoria_tunnel.pid
+    echo "$pid"
+  delegate_to: localhost
+  register: tunnel_pid
+
+- name: Tunnels open
+  debug:
+    msg:
+      - "Tunnels running (PID {{ tunnel_pid.stdout | trim }})"
+      - "  Vectoria API: http://localhost:{{ vectoria_local_port }}"
+      - "  OpenWebUI:    http://localhost:{{ openwebui_local_port }}"
+      - "To close: kill {{ tunnel_pid.stdout | trim }}"
+      - "To check tunnel log: cat /tmp/vectoria_tunnel.log"
+      - "To diagnose OpenWebUI on HPC: ssh leonardo 'tail -50 ~/vectoria_hpc-*.out | grep -i openwebui'"

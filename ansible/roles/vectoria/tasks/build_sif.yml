@@ -1,0 +1,65 @@
+---
+# Build a Singularity SIF image from a Docker image URL.
+#
+# Required vars:
+#   sif_label      : human-readable name, e.g. "vLLM" or "OpenWebUI"
+#   sif_image_path : path to the target .sif file (may contain $SCRATCH)
+#   sif_image_url  : docker:// URL to pull from
+#   sif_sandbox    : sandbox directory name under $SCRATCH
+
+- name: Resolve {{ sif_label }} SIF path (expand $SCRATCH)
+  shell: echo {{ sif_image_path }}
+  register: _sif_resolved
+  changed_when: false
+
+- name: Check if {{ sif_label }} SIF image already exists
+  stat:
+    path: "{{ _sif_resolved.stdout }}"
+  register: _sif_stat
+
+- name: Check if {{ sif_label }} sandbox already exists
+  stat:
+    path: "{{ scratch_resolved.stdout }}/{{ sif_sandbox }}"
+  register: _sif_sandbox_stat
+  when: not _sif_stat.stat.exists
+
+- name: Build {{ sif_label }} sandbox on login node (download only, no squashfs)
+  shell: |
+    mkdir -p $SCRATCH/singularity_tmp
+    export TMPDIR=$SCRATCH/singularity_tmp
+    export SINGULARITY_TMPDIR=$SCRATCH/singularity_tmp
+    singularity build --sandbox $SCRATCH/{{ sif_sandbox }}/ {{ sif_image_url }}
+  when:
+    - not _sif_stat.stat.exists
+    - not _sif_sandbox_stat.stat.exists
+  async: 3600
+  poll: 30
+
+- name: Convert {{ sif_label }} sandbox to SIF on compute node (via srun)
+  shell: |
+    mkdir -p $SCRATCH/singularity_tmp
+    srun --nodes=1 --ntasks=1 --cpus-per-task=16 --mem=64G \
+         --time=00:30:00 --partition={{ partition }} \
+         --account={{ account }} \
+         bash -c "export TMPDIR=$SCRATCH/singularity_tmp SINGULARITY_TMPDIR=$SCRATCH/singularity_tmp; \
+                  singularity build {{ sif_image_path }} $SCRATCH/{{ sif_sandbox }}/"
+  when: not _sif_stat.stat.exists
+  async: 3600
+  poll: 30
+
+- name: Verify {{ sif_label }} SIF was created
+  stat:
+    path: "{{ _sif_resolved.stdout }}"
+  register: _sif_final_stat
+
+- name: Fail if {{ sif_label }} SIF is missing
+  fail:
+    msg: "{{ sif_label }} image build failed: {{ sif_image_path }} does not exist."
+  when: not _sif_final_stat.stat.exists
+
+- name: Remove {{ sif_label }} sandbox after successful SIF build
+  shell: rm -rf $SCRATCH/{{ sif_sandbox }}/
+  when:
+    - _sif_final_stat.stat.exists
+    - _sif_sandbox_stat.stat is defined
+    - _sif_sandbox_stat.stat.exists

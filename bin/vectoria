@@ -1,0 +1,89 @@
+#!/usr/bin/env python
+
+"VECTORIA: Una terra fantastica dove le informazioni sono organizzate in vettori."
+
+import os, sys, argparse
+
+def _check_if_I_can_be_removed():
+    if "SLURM_JOB_ID" in os.environ:
+        venv_path=os.environ["VIRTUAL_ENV"]
+        python_version=sys.version.split()[0]
+        major_version=python_version.split(".")[0]
+        minor_version=python_version.split(".")[1]
+        python_version=f"{major_version}.{minor_version}"
+        lib_path=venv_path + "/lib/python" + python_version + "/site-packages"
+        # strip it from sys.path
+        sys.path.remove(lib_path)
+        # restore it in the right position
+        sys.path.insert(1,lib_path)
+_check_if_I_can_be_removed()
+
+from vectoria_lib.core.paths import ETC_DIR
+from vectoria_lib.core.io.commandline import create_cl_parser_from_json, cl_convert_to_dict
+from vectoria_lib.core.config import Config
+
+
+def cli():
+    parser = argparse.ArgumentParser(description="Main script entry point with multiple behaviors.")
+
+    parser.add_argument(
+        '--config',
+        type=str,
+        required=False,
+        default=ETC_DIR / "default" / "default_config.yaml",
+        help='Path to the configuration file'
+    )
+
+    subparsers = parser.add_subparsers(
+        required=True,
+        dest='command'
+    )
+    
+    _subparser = subparsers.add_parser('build_index', formatter_class=argparse.RawTextHelpFormatter, help='Run the build_index behavior')
+    create_cl_parser_from_json(_subparser, 'build_index.json')
+
+    _subparser = subparsers.add_parser('generate', formatter_class=argparse.RawTextHelpFormatter, help='Generate RAG answers from a test set')
+    create_cl_parser_from_json(_subparser, 'generate.json')
+
+    _subparser = subparsers.add_parser('inference', formatter_class=argparse.RawTextHelpFormatter, help='Run the inference behavior')
+    create_cl_parser_from_json(_subparser, 'inference.json')
+
+    _subparser = subparsers.add_parser('serve', formatter_class=argparse.RawTextHelpFormatter, help='Start the Vectoria REST API server')
+    _subparser.add_argument('--index-path', required=False, default=None, help='Pre-built index to load at startup (optional)')
+    _subparser.add_argument('--index-dir', default='/data/index', help='Directory for runtime-built indexes (default: /data/index)')
+    _subparser.add_argument('--upload-dir', default='/data/uploads', help='Temporary directory for uploaded files (default: /data/uploads)')
+    _subparser.add_argument('--upload-url', default=None, help='Public URL of the upload page shown to users (default: http://localhost:<port>/upload)')
+    _subparser.add_argument('--host', default='0.0.0.0', help='Bind host (default: 0.0.0.0)')
+    _subparser.add_argument('--port', default=8000, type=int, help='Bind port (default: 8000)')
+
+    return parser.parse_args()
+
+def main():
+    
+    args = cli()
+    
+    Config().load_config(args.config)
+    args = cl_convert_to_dict(args)
+
+    if args["command"] == 'build_index':
+        from vectoria_lib.cli.build_index import build_index
+        build_index(**args)
+
+    elif args["command"] == 'generate':
+        from vectoria_lib.cli.generate import generate
+        generate(**args)
+        
+    elif args["command"] == 'serve':
+        from vectoria_lib.cli.serve import serve
+        serve(**args)
+
+    elif args["command"] == 'inference':
+
+        if (not args.get("questions")) and (not args.get("test_set_path")):
+            raise ValueError("No questions provided. Use '--questions' to pass questions directly or '--test-set-path' to provide a JSON file.")
+            
+        from vectoria_lib.cli.inference import inference
+        inference(**args)
+
+if __name__ == "__main__":
+    main()

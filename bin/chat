@@ -1,0 +1,139 @@
+#!/usr/bin/env python3
+"""
+Vectoria — chat interattiva da terminale.
+
+Uso:
+  python bin/chat                        # tenant default
+  python bin/chat --tenant mio_progetto
+  python bin/chat --url http://host:8000 --tenant prova
+
+Comandi durante la chat:
+  /esci   — termina la sessione
+  /pulisci — azzera la cronologia della conversazione
+  /aiuto  — mostra i comandi disponibili
+"""
+
+import argparse
+import json
+import sys
+import textwrap
+import urllib.request
+import urllib.error
+import uuid
+
+
+WIDTH = 80  # larghezza massima del testo di risposta
+
+
+def parse_args():
+    p = argparse.ArgumentParser(description="Chat interattiva con Vectoria")
+    p.add_argument("--url", default="http://localhost:8000", help="URL base di Vectoria (default: http://localhost:8000)")
+    p.add_argument("--tenant", default="default", help="Tenant ID (default: default)")
+    return p.parse_args()
+
+
+def send(url: str, tenant: str, messages: list, thread_id: str) -> str:
+    payload = json.dumps({
+        "model": f"vectoria-{tenant}",
+        "messages": messages,
+        "stream": False,
+    }).encode()
+
+    req = urllib.request.Request(
+        f"{url}/v1/chat/completions",
+        data=payload,
+        headers={
+            "Content-Type": "application/json",
+            "X-Thread-ID": thread_id,
+        },
+        method="POST",
+    )
+    max_retries = 3
+    for attempt in range(1, max_retries + 1):
+        try:
+            with urllib.request.urlopen(req, timeout=300) as resp:
+                data = json.loads(resp.read())
+                return data["choices"][0]["message"]["content"]
+        except urllib.error.URLError as e:
+            if attempt < max_retries:
+                wait = attempt * 2
+                print(f"  [Connessione persa, nuovo tentativo {attempt}/{max_retries} tra {wait}s...]")
+                import time; time.sleep(wait)
+            else:
+                return f"[Errore di connessione dopo {max_retries} tentativi: {e.reason}]"
+        except (KeyError, json.JSONDecodeError) as e:
+            return f"[Risposta non valida dal server: {e}]"
+
+
+def print_banner(url: str, tenant: str):
+    print()
+    print("  ╔══════════════════════════════════╗")
+    print("  ║         VECTORIA  CHAT           ║")
+    print("  ╚══════════════════════════════════╝")
+    print(f"  Server : {url}")
+    print(f"  Tenant : {tenant}")
+    print("  Comandi: /esci  /pulisci  /aiuto")
+    print()
+
+
+def print_help():
+    print()
+    print("  Comandi disponibili:")
+    print("    /esci    — termina la chat")
+    print("    /pulisci — azzera la cronologia")
+    print("    /aiuto   — mostra questo messaggio")
+    print()
+
+
+def wrap(text: str) -> str:
+    lines = []
+    for paragraph in text.split("\n"):
+        if paragraph.strip() == "":
+            lines.append("")
+        else:
+            lines.extend(textwrap.wrap(paragraph, width=WIDTH) or [""])
+    return "\n".join(f"  {line}" for line in lines)
+
+
+def main():
+    args = parse_args()
+    print_banner(args.url, args.tenant)
+
+    history = []
+    thread_id = f"{args.tenant}-{uuid.uuid4().hex}"
+
+    while True:
+        try:
+            user_input = input("Tu: ").strip()
+        except (EOFError, KeyboardInterrupt):
+            print("\n\n  Arrivederci!\n")
+            sys.exit(0)
+
+        if not user_input:
+            continue
+
+        if user_input.lower() in ("/esci", "/exit", "/quit"):
+            print("\n  Arrivederci!\n")
+            sys.exit(0)
+
+        if user_input.lower() in ("/pulisci", "/clear"):
+            history.clear()
+            thread_id = f"{args.tenant}-{uuid.uuid4().hex}"
+            print("\n  Cronologia azzerata.\n")
+            continue
+
+        if user_input.lower() in ("/aiuto", "/help"):
+            print_help()
+            continue
+
+        history.append({"role": "user", "content": user_input})
+
+        print("\nVectoria: ", end="", flush=True)
+        reply = send(args.url, args.tenant, history, thread_id)
+        history.append({"role": "assistant", "content": reply})
+
+        print(f"\n{wrap(reply)}\n")
+
+
+if __name__ == "__main__":
+    main()

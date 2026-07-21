@@ -1,0 +1,4 @@
+[hpc]
+# Sensitive values (ansible_user, SSH key) live in group_vars/hpc.yml and are read from .env.
+# See .env.example at repo root for required env vars.
+leonardo ansible_host=login02-ext.leonardo.cineca.it ansible_ssh_extra_args='-o StrictHostKeyChecking=no' ansible_remote_tmp=$SCRATCH/.ansible-tmp

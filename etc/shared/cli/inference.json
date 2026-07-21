@@ -1,0 +1,38 @@
+{
+    "flag": [
+        {
+            "name": "--index-path",
+            "param": {
+                "type": "str",
+                "required": "True",
+                "help": "The path to the index (in pickle format)"
+            }
+        },
+        {
+            "name": "--test-set-path",
+            "param": {
+                "type": "str",
+                "required": "False",
+                "help": "A json file containing questions"
+            }
+        },
+        {
+
+            "name": "--questions",
+            "param":{
+                "type": "str",
+                "nargs": "+",
+                "required": "False",
+                "help": "Provide questions directly via CLI, separated by spaces. Example: \"Who is the CEO?\" \"Who is the VP?\""
+            }
+        },
+        {
+            "name": "--output-dir",
+            "param": {
+                "type": "str",
+                "required": "True",
+                "help": "The path to the output directory"
+            }
+        }
+    ]
+}

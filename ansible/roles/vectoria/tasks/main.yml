@@ -1,0 +1,46 @@
+---
+- name: Install Vectoria on HPC
+  include_tasks: install_vectoria.yml
+
+- name: Download LLM files on HPC
+  include_tasks: download_LLMs.yml
+
+- name: Resolve $SCRATCH path (for job submit)
+  shell: echo $SCRATCH
+  register: scratch_for_submit
+
+- name: Submit Vectoria HPC job
+  shell: |
+    cd "{{ scratch_for_submit.stdout }}/vectoria"
+    sbatch etc/hpc/vectoria_hpc_launcher.job
+  register: sbatch_out
+
+- name: Show job submission result
+  debug:
+    msg:
+      - "{{ sbatch_out.stdout }}"
+      - "Monitor:  ssh leonardo 'squeue -u {{ ansible_user }} && tail -f ~/vectoria_hpc-<job_id>.out'"
+      - "Tunnels:  ./etc/hpc/leonardo_connect.sh vectoria"
+
+- name: Extract SLURM job ID
+  set_fact:
+    slurm_job_id: "{{ sbatch_out.stdout | regex_search('(\\d+)') }}"
+
+- name: Wait for job to reach RUNNING state
+  shell: |
+    squeue -j {{ slurm_job_id }} -h -o '%T' 2>/dev/null
+  register: job_state
+  until: job_state.stdout | trim == "RUNNING"
+  retries: 60
+  delay: 15
+  failed_when: false
+
+- name: Get compute node hostname
+  shell: |
+    squeue -j {{ slurm_job_id }} -h -o '%N' | xargs scontrol show hostnames | head -1
+  register: compute_node_raw
+
+- name: Wait for services and open tunnels
+  include_tasks: wait_and_tunnel.yml
+  vars:
+    compute_node: "{{ compute_node_raw.stdout | trim }}"

@@ -1,0 +1,202 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# This is one of Vectoria's two configuration sources (the other is
+# ansible/roles/vectoria/templates/default_config.j2, used for HPC deploys).
+# If you change any of these shared sections, update the other file too:
+#   agent_guardrails, wiki, graph_store, full_paragraphs_retriever,
+#   and the non-path parts of chat_history / reranker / data_ingestion.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Logging
+vectoria_logs_dir: ~/vectoria_logs
+
+# Base directory for local HuggingFace models inside the container.
+# Leave commented to use HuggingFace Hub cache at /cache/huggingface.
+models_dir: /models
+log_level: DEBUG
+system_prompts_lang: eng
+
+data_ingestion:
+  multiprocessing: true
+  multiprocessing_workers: 2   # keep low in Docker; default outside Docker: min(cpu_count(), 4)
+
+  extraction:
+    format: pdf
+    backend: auto   # pypdf (fast, text PDFs only) | docling (ML-based, always OCR) | auto (pypdf first, docling+OCR fallback for scans)
+    dump_doc_structure_on_file: false
+    regexes_for_metadata_extraction:
+      - name: DOC_ID
+        pattern: '^Document Title'
+
+  regexes_for_replacement:
+    - name: remove_multiple_spaces
+      pattern: '[ \t]{2,}'
+      replace_with: ' '
+    - name: remove_bullets
+      pattern: '^\s*[•▪➢]\s*'
+      replace_with: ''
+    - name: remove_ligature_st
+      pattern: 'ﬆ'
+      replace_with: 'st'
+    - name: replace_fi
+      pattern: 'ﬁ'
+      replace_with: 'fi'
+    - name: replace_fl
+      pattern: 'ﬂ'
+      replace_with: 'fl'
+    - name: replace_ffi
+      pattern: 'ﬃ'
+      replace_with: 'ffi'
+    - name: replace_ffl
+      pattern: 'ﬄ'
+      replace_with: 'ffl'
+    - name: replace_ft
+      pattern: 'ﬅ'
+      replace_with: 'ft'
+    - name: replace_st
+      pattern: 'ﬆ'
+      replace_with: 'st'
+    - name: replace_AA
+      pattern: 'Ꜳ'
+      replace_with: 'AA'
+    - name: replace_AE
+      pattern: 'Æ'
+      replace_with: 'AE'
+    - name: replace_aa
+      pattern: 'ꜳ'
+      replace_with: 'aa'
+
+  chunking:
+    method: recursive   # recursive (fixed-size) | semantic (topic-aware, GPU recommended)
+    chunk_size: 512
+    chunk_overlap: 64
+    separators: ["\n\n", "\n", " ", ""]
+    is_separator_regex: [false, false, false, false]
+    dump_chunks_on_file: false
+    tokenizer_name: sentence-transformers/all-MiniLM-L6-v2
+
+vector_store:
+  name: qdrant                          # options: chroma, faiss, qdrant
+  model_name: sentence-transformers/all-MiniLM-L6-v2
+  device: cpu
+  normalize_embeddings: true
+  collection_name: vectoria
+  # embedding_batch_size: 128           # increase on GPU
+  # qdrant_url: http://qdrant:6333      # omit for local file-based mode
+  # qdrant_api_key: ${QDRANT_API_KEY}
+  # qdrant_prefer_grpc: false
+
+retriever:
+  enabled: true
+  top_k: 2
+  search_type: hybrid
+  bm25_weight: 0.5
+  multi_query: false
+  # min_per_source: 1                   # minimum chunks guaranteed per source after reranking
+  mmr_enabled: false
+  mmr_lambda: 0.7
+  mmr_top_k: 0
+
+reranker:
+  enabled: true
+  reranked_top_k: 2
+  model_name: cross-encoder/mmarco-mMiniLMv2-L12-H384-v1
+  device: cpu
+
+full_paragraphs_retriever:
+  enabled: false
+
+# ── Knowledge graph ───────────────────────────────────────────────────────
+graph_store:
+  enabled: true
+  extraction_device: cpu
+  entity_types: null
+  min_entity_confidence: 0.5
+  min_count: 1
+  min_pmi: 0.0
+  relation_method: cooccurrence
+  relation_extraction: false
+  relation_min_count: 2
+  relation_batch_size: 15
+  spacy_model: it_core_news_sm
+  entity_resolution: false
+  resolution_threshold: 0.92
+
+wiki:
+  enabled: true
+  pending_threshold: 5
+  max_topics_per_doc: 3
+  max_topics_per_batch: 8
+  language_normalization: true
+  similarity_threshold: 0.80
+  canonical_topic_language: it
+  synthesis_context_chunks: 4
+  max_page_words: 400
+
+chat_history:
+  enabled: true
+  summarize_after_n_messages: 30
+  max_conv_messages: 20
+  max_tool_messages: 3
+  checkpoint_db_path: /data/chat_history.db
+  summary_llm:
+    name: openai
+    base_url: ${LLM_BASE_URL}
+    api_key: ${LLM_API_KEY}
+    model_name: ${LLM_MODEL}
+    temperature: 0.1
+    max_tokens: 300
+    streaming: false
+    request_timeout: ${LLM_TIMEOUT:-120}
+
+# ── Agent guardrails ────────────────────────────────────────────────────────
+agent_guardrails:
+  tool_call_limit:
+    enabled: true
+    run_limit: 8            # max tool calls per user turn; keeps the agent below recursion_limit
+    thread_limit: null       # optional cap across the whole conversation
+    exit_behavior: continue  # continue | error | end
+  human_approval:
+    enabled: true
+    tools: [delete_document] # tool names requiring explicit user confirmation ("sì"/"no") before running
+
+# ── Inference engine ──────────────────────────────────────────────────────
+# Set LLM_BASE_URL (full URL including /v1), LLM_API_KEY, LLM_MODEL.
+# Examples:
+#   Groq:   LLM_BASE_URL=https://api.groq.com/openai/v1  LLM_MODEL=llama-3.3-70b-versatile
+#   HPC:    LLM_BASE_URL=http://131.175.206.46:8000/v1    LLM_MODEL=qwen3.5-397b-a17b-fp8
+#   Ollama: LLM_BASE_URL=http://host.docker.internal:11434/v1  LLM_MODEL=qwen3.5:32b
+#   llama.cpp: LLM_BASE_URL=http://localhost:3002/v1  LLM_API_KEY=none  LLM_MODEL=ignored
+inference_engine:
+  name: openai
+  base_url: ${LLM_BASE_URL}
+  api_key: ${LLM_API_KEY}
+  model_name: ${LLM_MODEL}
+  temperature: 0.0
+  max_tokens: 8192
+  streaming: true
+  request_timeout: ${LLM_TIMEOUT:-120}
+  model_kwargs:
+    extra_body:
+      # vLLM requires enable_thinking inside chat_template_kwargs, not at the root.
+      # This only affects the main chat model — MultiQueryRetriever and wiki synthesis
+      # always force it off separately (they parse raw output, a leaked <think> block
+      # would break that), so it's safe to flip this to true here if you want reasoning
+      # visible in the main answers. If enabled, also verify max_tokens above is high
+      # enough to cover thinking + answer, or you'll get empty responses.
+      chat_template_kwargs:
+        enable_thinking: true
+  # model_kwargs:
+  #   parallel_tool_calls: false        # disable for providers unreliable with parallel calls (e.g. Groq+llama)
+
+llama_server:
+  enabled: false
+  executable: /llama-server/llama-server
+  model: /models/my-model.gguf
+  port: 3002
+  ctx_size: 8192
+  threads: 4
+  batch_size: 512
+  ubatch_size: 128
+  cache_type_k: q8_0
+  cache_type_v: q8_0
+  mlock: true

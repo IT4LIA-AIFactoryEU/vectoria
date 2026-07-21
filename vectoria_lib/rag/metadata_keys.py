@@ -1,0 +1,5 @@
+DOC_FILE_NAME = "doc_file_name"
+PARAGRAPH_NUMBER = "paragraph_number"
+PARAGRAPH_NAME = "paragraph_name"
+LAYOUT_TAG = "layout_tag"
+SEQ_ID = "seq_id"

@@ -1,0 +1,35 @@
+---
+# Connect to a running Vectoria job and open SSH tunnels.
+#
+# Usage (job auto-detected):
+#   ansible-playbook ansible/connect.yml -i ansible/inventory/hosts
+#
+# Usage (explicit job ID):
+#   ansible-playbook ansible/connect.yml -i ansible/inventory/hosts -e job_id=1234567
+
+- name: Connect to running Vectoria job
+  hosts: leonardo
+  gather_facts: false
+  vars_files:
+    - roles/vectoria/vars/config.yml
+
+  tasks:
+    - name: Find running Vectoria job
+      shell: |
+        squeue -u {{ ansible_user }} -n vectoria_hpc \
+          {% if job_id is defined %}-j {{ job_id }} {% endif %}\
+          -h -o '%i %T %N' 2>/dev/null | awk '$2=="RUNNING"{print $1,$3}' | head -1
+      register: job_info
+      failed_when: job_info.stdout | trim == ""
+
+    - name: Set job facts
+      set_fact:
+        slurm_job_id: "{{ job_info.stdout.split()[0] }}"
+        compute_node: "{{ job_info.stdout.split()[1] }}"
+
+    - name: Show job info
+      debug:
+        msg: "Job {{ slurm_job_id }} RUNNING on {{ compute_node }}"
+
+    - name: Wait for services and open tunnels
+      include_tasks: roles/vectoria/tasks/wait_and_tunnel.yml

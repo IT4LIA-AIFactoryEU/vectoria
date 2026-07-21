@@ -1,0 +1,20 @@
+---
+- name: Install Vectoria on HPC
+  hosts: hpc  # change this to "localhost" for local installation
+  gather_facts: false
+  pre_tasks:
+    - name: Verify required environment variables are set
+      assert:
+        that:
+          - lookup('env', 'CINECA_USER') | length > 0
+          - lookup('env', 'ANSIBLE_HPC_ACCOUNT') | length > 0
+          - lookup('env', 'VECTORIA_API_TOKEN') | length > 0
+        fail_msg: |
+          Required environment variables are not set.
+          Run: set -a && source .env && set +a
+          Missing vars: CINECA_USER="{{ lookup('env', 'CINECA_USER') }}", ANSIBLE_HPC_ACCOUNT="{{ lookup('env', 'ANSIBLE_HPC_ACCOUNT') }}", VECTORIA_API_TOKEN="{{ lookup('env', 'VECTORIA_API_TOKEN') | ternary('set', 'MISSING') }}"
+      delegate_to: localhost
+      run_once: true
+  tasks:
+    - include_role:
+        name: vectoria

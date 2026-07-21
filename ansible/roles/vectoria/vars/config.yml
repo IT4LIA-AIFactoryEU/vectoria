@@ -1,0 +1,153 @@
+---
+# ── Leonardo HPC paths ─────────────────────────────────────────────────────────
+# These use $SCRATCH which bash expands at runtime on the compute node.
+vectoria_dir: "$SCRATCH/vectoria"
+hf_vectoria_cache: "$SCRATCH/hf_vectoria"   # HF cache for Vectoria models (embedder, reranker, docling)
+hf_models_dir: "$SCRATCH/hf_models"          # HF cache for the LLM served by vLLM
+image_path: "$SCRATCH/vllm.sif"              # Singularity image for vLLM
+
+# Vectoria Git repository (used only by the download_LLMs playbook to clone on HPC)
+vectoria_repo: "{{ lookup('env', 'VECTORIA_REPO_URL') }}"
+
+# ── SLURM settings ─────────────────────────────────────────────────────────────
+account: "{{ lookup('env', 'ANSIBLE_HPC_ACCOUNT') }}"    # verify with: saldo -b
+partition: "boost_usr_prod"
+qos: "boost_qos_dbg"                # boost_qos_bprod requires MinCPUs=2080 (65 nodes); normal is correct for ≤8 nodes
+nodes: 1
+cpus: 32
+gpus: 4
+job_time: "00:30:00"
+
+# GPU allocation: vLLM gets the first N GPUs, Vectoria gets the rest.
+vllm_gpus: "0,1"                 # single-node only: GPUs assigned to vLLM
+vectoria_gpus: "2,3"             # single-node only: GPUs assigned to Vectoria
+vllm_tensor_parallel_single: 2   # single-node TP (= len(vllm_gpus))
+                                  # multi-node TP is computed as nodes × gpus in the launcher
+
+# Ports
+vectoria_port: 8080        # port Vectoria listens on inside the compute node
+vectoria_local_port: 8081  # port forwarded to the user's PC via SSH tunnel
+vllm_port: 8000
+
+# ── API authentication ──────────────────────────────────────────────────────────
+# [REQUIRED] Change to a secret value. Must match inference_engine.api_key in config.
+api_token: "{{ lookup('env', 'VECTORIA_API_TOKEN') }}"
+
+# ── LLM model (served by vLLM) ─────────────────────────────────────────────────
+# Any HuggingFace model ID. Download it before submitting the job (see download_LLMs.yml).
+# GPU requirements: 7B → 1 GPU, 24B → 2 GPUs, 70B → 4 GPUs, 405B → 6+ nodes.
+llm_model: "google/gemma-4-31B-it"
+vllm_trust_remote_code: false
+vllm_tool_call_parser: "gemma4"
+vllm_enforce_eager: false
+vllm_disable_custom_all_reduce: true   # fix per custom_all_reduce errors su Leonardo senza disabilitare CUDA graphs
+vllm_gpu_memory_utilization: 0.85      # libera headroom per CUDA graph capture (default 0.90)
+ray_port: 6379
+ray_webui_local_port: 8265             # porta forwarded via SSH per il Ray dashboard
+
+# vLLM Singularity image to pull
+vllm_image_url: "docker://vllm/vllm-openai:gemma4"
+
+# OpenWebUI Singularity image
+openwebui_image_url: "docker://ghcr.io/open-webui/open-webui:main"
+openwebui_image_path: "$SCRATCH/openwebui.sif"
+openwebui_data_dir: "$SCRATCH/openwebui_data"
+openwebui_node_port: 8090    # port OpenWebUI listens on inside the compute node
+openwebui_local_port: 8082   # port forwarded to the user's PC via SSH tunnel
+
+# ── Vectoria models (embedder, reranker, OCR) ──────────────────────────────────
+embedding_model: "BAAI/bge-m3"
+reranker_model: "BAAI/bge-reranker-v2-m3"
+docling_layout_model: "docling-project/docling-layout-heron"
+docling_models: "docling-project/docling-models"
+docling_models_revision: "v2.3.0"
+
+# ── Vectoria config options ────────────────────────────────────────────────────
+system_prompts_lang: "it"       # eng | ita
+reranker_enabled: true
+log_level: "INFO"
+
+# ── Data ingestion (mirrors etc/docker/config.yaml: data_ingestion) ────────────
+data_ingestion_multiprocessing: true
+data_ingestion_multiprocessing_workers: 4
+extraction_backend: "auto"      # pypdf (fast, text PDFs) | docling (ML-based, always OCR) | auto
+dump_doc_structure_on_file: false
+
+# ── Chunking (mirrors etc/docker/config.yaml: data_ingestion.chunking) ─────────
+chunking_method: "semantic"     # recursive (fixed-size) | semantic (topic-aware, GPU recommended)
+chunk_overlap: 64
+chunk_size: 512                 # used only when chunking_method: recursive
+dump_chunks_on_file: false
+semantic_breakpoint_threshold_type: "percentile"
+semantic_breakpoint_threshold_amount: 70.0
+semantic_max_chunk_size: 512
+
+# ── Vector store & retriever (mirrors etc/docker/config.yaml) ──────────────────
+vector_store_name: "qdrant"     # chroma | faiss | qdrant
+vector_store_normalize_embeddings: true
+vector_store_collection_name: "vectoria"
+vector_store_embedding_batch_size: 128
+retriever_top_k: 12
+retriever_search_type: "hybrid"
+retriever_bm25_weight: 0.5
+retriever_multi_query: true
+retriever_min_per_source: 2
+retriever_mmr_enabled: true
+retriever_mmr_lambda: 0.7
+retriever_mmr_top_k: 6
+reranker_top_k: 6
+full_paragraphs_retriever_enabled: false
+
+# ── Chat history (mirrors etc/docker/config.yaml: chat_history) ────────────────
+chat_history_enabled: true
+chat_history_summarize_after_n_messages: 6
+chat_history_max_conv_messages: 4
+chat_history_max_tool_messages: 3
+chat_history_summary_temperature: 0.1
+chat_history_summary_max_tokens: 512
+
+# ── Agent guardrails (mirrors etc/docker/config.yaml: agent_guardrails) ────────
+tool_call_limit_enabled: true
+tool_call_limit: 8
+tool_call_thread_limit: null
+tool_call_exit_behavior: "continue"     # continue | error | end
+human_approval_enabled: true
+human_approval_tools: [delete_document]
+
+# ── Inference engine tuning (mirrors etc/docker/config.yaml: inference_engine) ─
+inference_temperature: 0.1
+inference_max_tokens: 2048
+inference_streaming: true
+inference_request_timeout: 300
+vllm_enable_thinking: true       # exposes reasoning in main answers; needs enough max_tokens for think+answer
+
+# ── Knowledge graph (GraphRAG) ─────────────────────────────────────────────────
+# Set graph_enabled: true to install GLiNER and enable entity extraction at ingest.
+# Requires: uv sync --extra graph + HF download of gliner_model.
+graph_enabled: true
+gliner_model: "urchade/gliner_multi-v2.1"
+# Base encoder GLiNER loads internally via AutoTokenizer/AutoModel — must be cached separately.
+# Check the value of "model_name" inside gliner_config.json if you change gliner_model.
+gliner_base_model: "microsoft/mdeberta-v3-base"
+# spaCy model for the free relation-label fallback (graph_store.relation_extraction: false
+# in the rendered etc/hpc/default_config.yaml). Must match graph_store.spacy_model in ansible/roles/vectoria/templates/default_config.j2.
+spacy_model: "it_core_news_sm"
+graph_min_entity_confidence: 0.5
+graph_min_count: 1
+graph_min_pmi: 0.5
+graph_relation_method: "cooccurrence"
+graph_relation_extraction: false
+graph_relation_min_count: 2
+graph_relation_batch_size: 15
+graph_entity_resolution: true
+graph_resolution_threshold: 0.92
+
+# ── Wiki synthesis (mirrors etc/docker/config.yaml: wiki) ──────────────────────
+wiki_enabled: true
+wiki_pending_threshold: 5
+wiki_max_topics_per_doc: 3
+wiki_max_topics_per_batch: 8
+wiki_language_normalization: true
+wiki_similarity_threshold: 0.80
+wiki_synthesis_context_chunks: 4
+wiki_max_page_words: 400

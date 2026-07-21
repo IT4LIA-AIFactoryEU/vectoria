@@ -1,0 +1,141 @@
+name: vectoria
+
+services:
+
+  # ── Data directory init (runs once, fixes ownership for non-root container user) ──
+  data-init:
+    image: busybox
+    user: root
+    command: >
+      sh -c "mkdir -p /data/index /data/uploads && chown -R 1000:1000 /data"
+    volumes:
+      - ${DATA_DIR:-./data}:/data
+    networks:
+      - vectoria
+
+  # ── Vectoria RAG backend ────────────────────────────────────────────────────
+  vectoria-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    user: "1000:1000"
+    restart: unless-stopped
+    depends_on:
+      data-init:
+        condition: service_completed_successfully
+    ports:
+      - "${VECTORIA_PORT:-8000}:8000"
+    environment:
+      # (Optional) pre-built index to load at startup.
+      # Leave unset to start without an index and upload documents via POST /documents/ingest.
+      - INDEX_PATH=${INDEX_PATH:-}
+      # Docker-specific config (uses host.docker.internal instead of localhost for Ollama)
+      - CONFIG_PATH=${CONFIG_PATH:-etc/docker/config.yaml}
+      - VECTORIA_CONFIG_FILE=${CONFIG_PATH:-etc/docker/config.yaml}
+      # Optional: comma-separated list of valid x-token values for auth
+      - PERMITTED_KEYS=${PERMITTED_KEYS:-}
+      # HuggingFace cache dir (avoid re-downloading models at every restart)
+      - HF_HOME=/cache/huggingface
+      - PYTHONUNBUFFERED=1
+      # MLflow observability (optional — leave unset to disable)
+      - MLFLOW_TRACKING_URI=${MLFLOW_TRACKING_URI:-}
+      # Inference endpoint — set these to point at any OpenAI-compatible server
+      - LLM_BASE_URL=${LLM_BASE_URL}
+      - LLM_API_KEY=${LLM_API_KEY}
+      - LLM_MODEL=${LLM_MODEL}
+      - LLM_TIMEOUT=${LLM_TIMEOUT:-120}
+      - QDRANT_API_KEY=${QDRANT_API_KEY:-}
+      # Suppress langchain USER_AGENT warning
+      - USER_AGENT=vectoria
+      # Suppress HuggingFace unauthenticated warning (set HF_TOKEN in .env to use your account)
+      - HF_TOKEN=${HF_TOKEN:-}
+    volumes:
+      # Persist the index built at runtime (survives container restarts)
+      - ${DATA_DIR:-./data}/index:/data/index
+      # Temporary storage for uploaded documents
+      - ${DATA_DIR:-./data}/uploads:/data/uploads
+      # Persist HuggingFace model cache across rebuilds
+      - ${HF_CACHE_DIR:-~/.cache/huggingface}:/cache/huggingface
+      # GGUF models directory (used by llama-server and/or direct llamacpp binding)
+      - ${MODELS_DIR:-~/Scrivania/models}:/models:ro
+      # llama-server binary (only needed when llama_server.enabled: true in config)
+      # Set LLAMA_SERVER_DIR to the directory containing your llama-server binary
+      - ${LLAMA_SERVER_DIR:-~/llama.cpp/build/bin}:/llama-server:ro
+      # Optional: mount a pre-built index from the host (read-only)
+      # - /path/to/your/chroma_index:/data/prebuilt_index:ro
+      # Optional: mount a custom config file
+      # - ./my_config.yaml:/app/etc/docker/config.yaml:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - vectoria
+    deploy:
+      resources:
+        reservations:
+          # Guaranteed minimums — containers can burst above these if the host
+          # has free capacity. Increase limits for production workloads.
+          cpus: "1"
+          memory: 2G
+        limits:
+          # Hard caps — adjust based on your server's available RAM/CPU.
+          # Indexing with docling is memory-intensive; 6G is a safe minimum.
+          cpus: "4"
+          memory: 6G
+
+  # ── OpenWebUI (chat frontend) ───────────────────────────────────────────────
+  openwebui:
+    image: ghcr.io/open-webui/open-webui:main
+    container_name: openwebui
+    restart: unless-stopped
+    environment:
+      - WEBUI_AUTH=False
+      - ENABLE_SIGNUP=True
+      - OPENAI_API_BASE_URLS=http://vectoria-api:8000/v1
+      - OPENAI_API_KEYS=${PERMITTED_KEYS:-vectoria}
+      - ENABLE_FOLLOW_UP_GENERATION=false
+      # Suppress CORS wildcard warning (explicit origin instead of default *)
+      - CORS_ALLOW_ORIGIN=http://localhost:${OPENWEBUI_PORT:-8080}
+    ports:
+      - "127.0.0.1:${OPENWEBUI_PORT:-8080}:8080"
+    volumes:
+      - ${OPENWEBUI_DATA_DIR:-./data/openwebui}:/app/backend/data
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      - vectoria-api
+    networks:
+      - vectoria
+
+  # ── MLflow (observability) — profile: observability ──────────────────────────
+  # Start with: docker compose --profile observability up -d
+  # Then open http://localhost:5000 to browse experiments and traces.
+
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:v2.21.3
+    container_name: mlflow
+    profiles: [observability]
+    restart: unless-stopped
+    command: >
+      mlflow server
+      --host 0.0.0.0
+      --port 5000
+      --backend-store-uri sqlite:////mlflow/mlflow.db
+      --default-artifact-root /mlflow/artifacts
+    ports:
+      - "${MLFLOW_PORT:-5000}:5000"
+    volumes:
+      - mlflow-data:/mlflow
+    networks:
+      - vectoria
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+networks:
+  vectoria:
+    driver: bridge
+
+volumes:
+  mlflow-data:

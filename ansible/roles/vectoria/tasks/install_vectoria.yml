@@ -1,0 +1,120 @@
+---
+- name: Load configuration
+  include_vars:
+    file: config.yml
+
+- name: Resolve $SCRATCH path on Leonardo
+  shell: echo $SCRATCH
+  register: scratch_resolved
+
+- name: Create Vectoria directory in $SCRATCH
+  shell: mkdir -p $SCRATCH/vectoria
+
+- name: Sync Vectoria repository from local machine
+  synchronize:
+    src: "{{ playbook_dir }}/../"
+    dest: "{{ scratch_resolved.stdout }}/vectoria/"
+    rsync_opts:
+      - "--delete"
+      - "--exclude=.venv"
+      - "--exclude=__pycache__"
+      - "--exclude=*.pyc"
+      - "--exclude=.git"
+      - "--exclude=ansible"
+      - "--exclude=data"
+
+- name: Install uv (if not present)
+  shell: |
+    if ! command -v uv &>/dev/null && ! [ -f "$HOME/.local/bin/uv" ]; then
+      curl -LsSf https://astral.sh/uv/install.sh | sh
+    fi
+    echo "uv ready: $($HOME/.local/bin/uv --version 2>/dev/null || uv --version)"
+  environment:
+    PATH: "{{ ansible_env.HOME }}/.local/bin:{{ ansible_env.PATH }}"
+
+- name: Install Vectoria dependencies with uv
+  shell: |
+    export PATH="$HOME/.local/bin:$PATH"
+    cd "{{ scratch_resolved.stdout }}/vectoria"
+    uv sync --extra docling --extra api --extra observability{% if graph_enabled | default(false) %} --extra graph{% endif %}{% if nodes | int > 1 %} --extra multinode{% endif %}
+  environment:
+    PATH: "{{ ansible_env.HOME }}/.local/bin:{{ ansible_env.PATH }}"
+
+- name: Download all tiktoken encodings on local machine (RAGAS needs cl100k + o200k)
+  local_action:
+    module: get_url
+    url: "{{ item.url }}"
+    dest: "/tmp/{{ item.key }}"
+  loop:
+    - { url: "https://openaipublic.blob.core.windows.net/encodings/o200k_base.tiktoken",  key: "fb374d419588a4632f3f557e76b4b70aebbca790" }
+    - { url: "https://openaipublic.blob.core.windows.net/encodings/cl100k_base.tiktoken", key: "9b5ad71b2ce5302211f9c61530b329a4922fc6a4" }
+    - { url: "https://openaipublic.blob.core.windows.net/encodings/p50k_base.tiktoken",   key: "ec7223a39ce59f226a68acc30dc1af2788490e15" }
+    - { url: "https://openaipublic.blob.core.windows.net/encodings/r50k_base.tiktoken",   key: "0ea1e91bbb3a60f729a8dc8f777fd2fc07cd8df4" }
+
+- name: Create tiktoken cache dir on Leonardo ($SCRATCH shared across all nodes)
+  shell: mkdir -p $SCRATCH/.tiktoken_cache
+
+- name: Upload tiktoken encodings to Leonardo
+  copy:
+    src: "/tmp/{{ item }}"
+    dest: "{{ scratch_resolved.stdout }}/.tiktoken_cache/{{ item }}"
+    mode: "0644"
+  loop:
+    - fb374d419588a4632f3f557e76b4b70aebbca790
+    - 9b5ad71b2ce5302211f9c61530b329a4922fc6a4
+    - ec7223a39ce59f226a68acc30dc1af2788490e15
+    - 0ea1e91bbb3a60f729a8dc8f777fd2fc07cd8df4
+
+# ── vLLM Singularity image ──────────────────────────────────────────────────
+
+- include_tasks: build_sif.yml
+  vars:
+    sif_label: "vLLM"
+    sif_image_path: "{{ image_path }}"
+    sif_image_url: "{{ vllm_image_url }}"
+    sif_sandbox: "vllm_sandbox"
+
+- name: Create ray venv in $SCRATCH using vLLM container Python 3.12 (multi-node only)
+  shell: |
+    VENV="{{ scratch_resolved.stdout }}/ray_venv"
+    if [ ! -f "$VENV/bin/ray" ]; then
+      rm -rf "$VENV"
+      singularity exec \
+        --bind /leonardo_scratch:/leonardo_scratch \
+        "{{ scratch_resolved.stdout }}/vllm.sif" \
+        python3 -m venv --system-site-packages "$VENV"
+      singularity exec \
+        --bind /leonardo_scratch:/leonardo_scratch \
+        --env PYTHONNOUSERSITE=1 \
+        "{{ scratch_resolved.stdout }}/vllm.sif" \
+        "$VENV/bin/pip" install --ignore-installed "ray[default]>=2.0,<3.0"
+    fi
+  when: nodes | int > 1
+
+# ── OpenWebUI Singularity image ─────────────────────────────────────────────
+
+- include_tasks: build_sif.yml
+  vars:
+    sif_label: "OpenWebUI"
+    sif_image_path: "{{ openwebui_image_path }}"
+    sif_image_url: "{{ openwebui_image_url }}"
+    sif_sandbox: "openwebui_sandbox"
+
+# ── Data directories and configuration ─────────────────────────────────────
+
+- name: Create OpenWebUI data directory
+  shell: mkdir -p "{{ openwebui_data_dir }}"
+
+- name: Generate vectoria_hpc_launcher.job from template
+  template:
+    src: vectoria_hpc_launcher.j2
+    dest: "{{ vectoria_dir }}/etc/hpc/vectoria_hpc_launcher.job"
+    mode: "0755"
+
+- name: Generate default_config.yaml for HPC from template
+  template:
+    src: default_config.j2
+    dest: "{{ vectoria_dir }}/etc/hpc/default_config.yaml"
+
+- name: Create data directories
+  shell: mkdir -p "{{ scratch_resolved.stdout }}/vectoria_data/index" "{{ scratch_resolved.stdout }}/vectoria_data/uploads" "{{ scratch_resolved.stdout }}/vectoria_data"

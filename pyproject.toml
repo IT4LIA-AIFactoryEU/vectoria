@@ -1,0 +1,168 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "vectoria_lib"
+version = "1.0"
+description = ""
+readme = "README.md"
+requires-python = ">=3.12, <3.14"
+classifiers = [
+    "Programming Language :: Python :: 3.12"
+]
+authors = [
+    {name = "Andrea Proia", email = "a.proia@cineca.it"},
+    {name = "Chiara Malizia", email = "c.malizia@cineca.it"},
+    {name = "Eric Pascolo", email = "e.pascolo@cineca.it"},
+    {name = "Leonardo Baroncelli", email = "leonardo.baroncelli26@gmail.com"},
+    {name = "Luca Babetto", email = "l.babetto@cineca.it"}
+]
+maintainers = [
+    {name = "Andrea Proia", email = "a.proia@cineca.it"},
+    {name = "Chiara Malizia", email = "c.malizia@cineca.it"},
+    {name = "Eric Pascolo", email = "e.pascolo@cineca.it"},
+    {name = "Leonardo Baroncelli", email = "leonardo.baroncelli26@gmail.com"},
+    {name = "Luca Babetto", email = "l.babetto@cineca.it"}
+]
+dependencies = [
+    "requests>=2.32.3",
+    # <4.52 pins below the version that added a hard torch>=2.6 requirement to
+    # load non-safetensors checkpoints (CVE-2025-32434 guard). BAAI/bge-m3 (our
+    # default embedder) ships only pytorch_model.bin, no safetensors, and torch
+    # is pinned to 2.5.1 transitively by vllm==0.7.0 (CUDA ABI lock, not
+    # something to bump casually) — so capping transformers avoids the crash
+    # without touching torch/vllm. Revisit if bge-m3 ever ships safetensors,
+    # or when vllm is upgraded past its torch 2.5.1 pin.
+    "transformers>=4.49,<4.52",
+    "faiss-cpu",
+    "langchain-chroma>=1.0",
+    "chromadb>=1.0",
+    "qdrant-client>=1.9",
+    "langchain-qdrant>=0.2",
+    "accelerate",
+    "python-docx==1.1.2",
+    "pymupdf>=1.24",
+    "openpyxl>=3.1",
+    "langchain>=0.3",
+    "langchain-community>=0.3",
+    "langchain-core>=0.3",
+    "langchain-huggingface>=0.1",
+    "langchain-openai>=0.2",
+    "langchain-anthropic>=0.3",
+    "langgraph>=0.2",
+    "langgraph-checkpoint-sqlite>=2.0",
+    "sentence_transformers>=3.0.0",
+    "rank_bm25",
+    "tqdm",
+    "bitsandbytes",
+    "langchain-classic",
+    "Pillow>=10.0",
+    "pillow-heif>=0.18",
+    "python-pptx>=1.0",
+    "beautifulsoup4>=4.12",
+]
+
+[project.optional-dependencies]
+docling = [
+    "docling>=2.0",
+]
+dev = [
+    "grandalf",
+    "ruff>=0.6"
+]
+test = [
+    "pytest==8.*",
+    "IPython",
+]
+ui = [
+    "streamlit==1.41.*"
+]
+api = [
+    "fastapi>=0.110",
+    "uvicorn[standard]>=0.29",
+    "python-multipart>=0.0.9",
+]
+observability = [
+    "mlflow>=2.15",
+]
+engines = [
+    "vllm"
+]
+llamacpp = [
+    "llama-cpp-python",
+]
+graph = [
+    "gliner>=0.2.7",
+    "networkx>=3.0",
+    "spacy>=3.7",  # relation-label fallback (graph_store.relation_extraction: false);
+                   # the language model itself (e.g. it_core_news_sm) is a separate
+                   # download — see ansible/roles/vectoria/tasks/download_LLMs.yml
+                   # or run: uv run python -m spacy download it_core_news_sm
+]
+multinode = [
+    "ray[default]>=2.0",
+]
+
+[tool.uv]
+no-build-package = ["vllm"]
+
+[tool.setuptools.packages.find]
+include = ["vectoria_lib*"]
+
+[project.urls]
+"Repository" = "https://github.com/Eurocc-Italy/Vectoria"
+"Issues" = "https://github.com/Eurocc-Italy/Vectoria/issues"
+
+[tool.pytest.ini_options]
+addopts = "-v --pdbcls=IPython.terminal.debugger:TerminalPdb"
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+]
+pythonpath = ["."]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 120
+indent-width = 4
+extend-exclude = [
+    "data",
+    "ansible",
+    "etc",
+    "bin",
+    ".venv",
+    "build",
+    "dist",
+]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "F",   # pyflakes
+    "W",   # pycodestyle warnings
+    "I",   # isort
+    "B",   # flake8-bugbear
+    "UP",  # pyupgrade
+    "SIM", # flake8-simplify
+]
+ignore = [
+    "E501",   # line too long — handled by formatter
+    "B008",   # function calls in argument defaults (FastAPI Depends pattern)
+    "SIM108", # ternary instead of if/else
+    "SIM117", # combine nested with statements
+    "UP007",  # Optional[X] over X | None — keep both for now
+    "UP045",  # X | None over Optional[X]
+]
+
+[tool.ruff.lint.per-file-ignores]
+"test/**" = ["E402", "F401", "F841"]
+"bin/vectoria" = ["E402"]
+"vectoria_lib/__init__.py" = ["F401"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["vectoria_lib"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "lf"

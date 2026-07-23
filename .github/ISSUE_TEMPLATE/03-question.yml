@@ -1,0 +1,68 @@
+name: "Question or support request"
+description: "Ask for clarification or support about using, configuring, or understanding the project."
+title: "[QUESTION] "
+labels: ["question"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Ask a specific question and include enough context for maintainers or contributors to provide a useful answer.
+
+  - type: checkboxes
+    id: preliminary-checks
+    attributes:
+      label: "Preliminary checks"
+      options:
+        - label: "I reviewed the available documentation and searched the existing issues."
+          required: true
+        - label: "I removed credentials, personal data, and other sensitive information from this request."
+          required: true
+
+  - type: textarea
+    id: question
+    attributes:
+      label: "Question"
+      description: "State precisely what clarification or support you need."
+      placeholder: "How can I ...?"
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: "Context"
+      description: "Explain what you are trying to achieve and why."
+    validations:
+      required: true
+
+  - type: textarea
+    id: attempts
+    attributes:
+      label: "What have you already tried?"
+      description: "Describe commands, configurations, documentation, or workarounds you already tried."
+    validations:
+      required: false
+
+  - type: input
+    id: version
+    attributes:
+      label: "Version, release, or commit"
+      placeholder: "For example: v1.4.2 or commit a1b2c3d"
+    validations:
+      required: false
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: "Environment"
+      description: "Include relevant operating system, runtime, browser, dependency, or configuration details."
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: "Additional context"
+      description: "Add logs, screenshots, examples, or relevant links."
+    validations:
+      required: false

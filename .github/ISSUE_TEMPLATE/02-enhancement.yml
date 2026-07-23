@@ -1,0 +1,71 @@
+name: "Feature request"
+description: "Propose a new feature or an improvement to existing behavior."
+title: "[ENHANCEMENT] "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Describe the problem or user need before describing the proposed solution. This helps maintainers evaluate priorities and alternatives.
+
+  - type: checkboxes
+    id: preliminary-checks
+    attributes:
+      label: "Preliminary checks"
+      options:
+        - label: "I searched the open and closed issues and did not find an equivalent proposal."
+          required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: "Problem or need"
+      description: "What concrete problem should this feature solve?"
+      placeholder: "As a user, I need ... because ..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed-solution
+    attributes:
+      label: "Proposed solution"
+      description: "Describe the desired behavior without unnecessarily constraining the implementation."
+    validations:
+      required: true
+
+  - type: textarea
+    id: use-cases
+    attributes:
+      label: "Use cases"
+      description: "Provide one or more realistic examples."
+      placeholder: |
+        1. Primary use case: ...
+        2. Secondary use case: ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: "Alternatives considered"
+      description: "Describe any workarounds or alternative solutions you considered."
+    validations:
+      required: false
+
+  - type: textarea
+    id: acceptance-criteria
+    attributes:
+      label: "Suggested acceptance criteria"
+      placeholder: |
+        - [ ] ...
+        - [ ] ...
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: "Additional context"
+      description: "Add mockups, references, standards, or useful links."
+    validations:
+      required: false

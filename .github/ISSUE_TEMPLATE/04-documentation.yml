@@ -1,0 +1,61 @@
+name: "Documentation improvement"
+description: "Report missing, incorrect, ambiguous, or outdated documentation."
+title: "[DOCS] "
+labels: ["documentation"]
+body:
+  - type: checkboxes
+    id: preliminary-checks
+    attributes:
+      label: "Preliminary checks"
+      options:
+        - label: "I searched the existing issues and did not find an equivalent report."
+          required: true
+
+  - type: input
+    id: location
+    attributes:
+      label: "Affected page, file, or section"
+      description: "Provide a URL, file path, or section name."
+      placeholder: "For example: docs/installation.md, Configuration section"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: issue-type
+    attributes:
+      label: "Documentation issue type"
+      options:
+        - "Incorrect information"
+        - "Missing information"
+        - "Ambiguous or unclear text"
+        - "Outdated information"
+        - "Broken example"
+        - "Typographical or formatting error"
+        - "Translation issue"
+        - "Other"
+    validations:
+      required: true
+
+  - type: textarea
+    id: current-problem
+    attributes:
+      label: "Problem description"
+      description: "Explain why the current documentation is insufficient, incorrect, or misleading."
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed-change
+    attributes:
+      label: "Proposed change"
+      description: "Suggest the correction or content that should be added."
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: "Additional context"
+      description: "Add references, standards, screenshots, or examples."
+    validations:
+      required: false

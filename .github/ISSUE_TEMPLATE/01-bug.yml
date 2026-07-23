@@ -1,0 +1,95 @@
+name: "Bug report"
+description: "Report unexpected or reproducibly incorrect behavior."
+title: "[BUG] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for reporting a bug. Provide enough information for maintainers to reproduce and investigate the problem.
+
+  - type: checkboxes
+    id: preliminary-checks
+    attributes:
+      label: "Preliminary checks"
+      options:
+        - label: "I searched the open and closed issues and did not find an equivalent report."
+          required: true
+        - label: "I removed credentials, personal data, and other sensitive information from this report."
+          required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: "Problem description"
+      description: "Clearly explain what is not working."
+      placeholder: "Describe the observed problem."
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: "Steps to reproduce"
+      description: "List the minimum steps required to reproduce the problem."
+      placeholder: |
+        1. Start ...
+        2. Configure ...
+        3. Run ...
+        4. Observe ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected-behavior
+    attributes:
+      label: "Expected behavior"
+      placeholder: "Describe what should have happened."
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual-behavior
+    attributes:
+      label: "Actual behavior"
+      placeholder: "Describe what happened instead."
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: "Version, release, or commit"
+      placeholder: "For example: v1.4.2 or commit a1b2c3d"
+    validations:
+      required: false
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: "Environment"
+      description: "Include the operating system, runtime, browser, dependencies, and relevant configuration."
+      placeholder: |
+        - Operating system:
+        - Runtime and version:
+        - Browser and version:
+        - Other relevant details:
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: "Relevant logs"
+      description: "Paste logs or stack traces after removing credentials and sensitive information."
+      render: shell
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: "Additional context"
+      description: "Add screenshots, links, or any other useful information."
+    validations:
+      required: false

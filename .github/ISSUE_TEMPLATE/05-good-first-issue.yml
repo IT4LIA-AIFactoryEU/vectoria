@@ -1,0 +1,63 @@
+name: "Good first issue (maintainers)"
+description: "Define a small, well-scoped task suitable for a first-time contributor."
+title: "[GOOD FIRST ISSUE] "
+labels: ["good first issue"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This form is intended primarily for maintainers and collaborators preparing tasks for new contributors.
+
+  - type: textarea
+    id: objective
+    attributes:
+      label: "Objective"
+      description: "Describe the expected result in a self-contained and understandable way."
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: "Context"
+      description: "Explain where the change is needed and why the task is useful."
+    validations:
+      required: true
+
+  - type: textarea
+    id: suggested-steps
+    attributes:
+      label: "Suggested steps"
+      placeholder: |
+        1. Locate ...
+        2. Change ...
+        3. Add or update tests ...
+        4. Update documentation ...
+    validations:
+      required: false
+
+  - type: textarea
+    id: acceptance-criteria
+    attributes:
+      label: "Acceptance criteria"
+      placeholder: |
+        - [ ] ...
+        - [ ] ...
+    validations:
+      required: true
+
+  - type: input
+    id: relevant-files
+    attributes:
+      label: "Relevant files or components"
+      placeholder: "For example: src/parser/, tests/test_parser.py"
+    validations:
+      required: false
+
+  - type: textarea
+    id: contributor-guidance
+    attributes:
+      label: "Getting-started guidance"
+      description: "Provide links to documentation, commands to run tests, contacts, or relevant constraints."
+    validations:
+      required: false

@@ -213,6 +213,19 @@ For bugs, feature requests, or questions, open an issue on the GitLab repository
 
 For access problems or general support on the IT4LIA GitHub/GitLab organization: [support-it4lia@cineca.it](mailto:support-it4lia@cineca.it)
 
+## Issues, feature requests, and support
+
+Use the [issue template selector](../../issues/new/choose) to report a bug, propose a feature, request support, or suggest a documentation improvement.
+
+Before opening a new issue:
+
+1. Review the project documentation.
+2. Search both open and closed issues for an existing report or request.
+3. Select the most appropriate template and complete all required fields.
+4. Remove credentials, personal data, and other sensitive information from logs, screenshots, and examples.
+
+The project's label taxonomy and minimum triage workflow are documented in [`.github/ISSUE_MANAGEMENT.md`](.github/ISSUE_MANAGEMENT.md).
+
 ## Owner & Maintainer
 
 - **Owner:** Michele Visciarelli

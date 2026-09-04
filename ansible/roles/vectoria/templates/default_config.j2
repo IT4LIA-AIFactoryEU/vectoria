@@ -1,3 +1,11 @@
+#
+# VECTORIA
+#
+# @authors : Luca Babetto, Leonardo Baroncelli, Carolina Berucci, Chiara Malizia, Eric Pascolo, Andrea Proia, Mattia Buzzoni, Michele Visciarelli
+#
+# This file is distributed under the MIT License.
+# See the LICENSE file in the repository root for the full license text.
+#
 # ─────────────────────────────────────────────────────────────────────────────
 # This is one of Vectoria's two configuration sources (the other is
 # etc/docker/config.yaml, used for local/Docker). If you change any of
@@ -165,4 +173,3 @@ wiki:
   canonical_topic_language: {{ system_prompts_lang | replace('eng', 'en') | replace('ita', 'it') }}
   synthesis_context_chunks: {{ wiki_synthesis_context_chunks }}
   max_page_words: {{ wiki_max_page_words }}
-

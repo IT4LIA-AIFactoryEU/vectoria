@@ -2,21 +2,22 @@
 
 ## Supported Versions
 
-List each version that receives security fixes in the table below.
+We actively support the following versions of SecEv4LIA with security updates:
 
-| Version | Supported |
-| --- | --- |
-|  |  |
+| **Version** | **Supported** |
+| ----------------- | ------------------- |
+| Latest release    | ✅                  |
+| Older releases    | ❌                  |
 
 ## Reporting a Vulnerability
 
 Please **do not** report suspected vulnerabilities through public GitLab
 issues, discussions, or chat channels.
 
-Report them privately by email to [superc@cineca.it](mailto:superc@cineca.it).
+Report them privately by email to [support-it4lia@cineca.it](mailto:support-it4lia@cineca.it).
 If this channel is unavailable, use the IT4LIA support contact at
-[support-it4lia@cineca.it](mailto:support-it4lia@cineca.it) and clearly mark
-the message as a security report.
+[superc@cineca.it](mailto:superc@cineca.it) and clearly mark
+the message as a security report for Vectoria IT4LIA.
 
 Include, where possible:
 

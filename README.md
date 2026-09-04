@@ -1,8 +1,26 @@
-# Vectoria
+<div align="center">
+  <h1>V E C T O R I A <sup>✦</sup></h1>
+  <p><code>PRIVATE RAG · DOCUMENT INTELLIGENCE · ON YOUR INFRASTRUCTURE</code></p>
+  <p><strong>Private document intelligence, wherever your data lives.</strong></p>
+  <p>
+    An on-premise RAG platform for secure, multi-tenant document Q&amp;A—run it locally,
+    in Docker, or on CINECA's Leonardo HPC infrastructure.
+  </p>
+  <p>
+    <img src="https://img.shields.io/badge/Python-3.12%2B-3776AB?style=flat-square&amp;logo=python&amp;logoColor=white" alt="Python 3.12+" />
+    <img src="https://img.shields.io/badge/license-MIT-2EA44F?style=flat-square" alt="MIT License" />
+    <img src="https://img.shields.io/badge/deployment-local%20%C2%B7%20Docker%20%C2%B7%20HPC-5B4B8A?style=flat-square" alt="Local, Docker, and HPC deployments" />
+  </p>
+  <p>
+    <a href="#install">Install</a> ·
+    <a href="#local--docker">Docker</a> ·
+    <a href="#hpc--leonardo--cineca">HPC deployment</a> ·
+    <a href="#features">Features</a>
+  </p>
+</div>
 
-On-premise RAG (Retrieval-Augmented Generation) for private document Q&A. Runs locally with `uv`, in Docker, or on HPC via Ansible. Works with OpenAI, Anthropic, Google Gemini, Ollama, or any OpenAI-compatible endpoint.
-
-Built for the IT4LIA project. It answers questions over private documents (multi-tenant Q&A) without sending data to third-party cloud services, using CINECA's Leonardo HPC infrastructure for on-premise LLM inference.
+Vectoria is built for the IT4LIA project and works with OpenAI, Anthropic, Google Gemini,
+Ollama, and any OpenAI-compatible endpoint—while keeping private documents under your control.
 
 ## Architecture
 

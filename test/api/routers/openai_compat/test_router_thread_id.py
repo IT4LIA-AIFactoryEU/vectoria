@@ -1,3 +1,11 @@
+#
+# VECTORIA
+#
+# @authors : Luca Babetto, Leonardo Baroncelli, Carolina Berucci, Chiara Malizia, Eric Pascolo, Andrea Proia, Mattia Buzzoni, Michele Visciarelli
+#
+# This file is distributed under the MIT License.
+# See the LICENSE file in the repository root for the full license text.
+#
 from vectoria_lib.api.routers.openai_compat.models import ChatMessage
 from vectoria_lib.api.routers.openai_compat.router import _derive_thread_id
 

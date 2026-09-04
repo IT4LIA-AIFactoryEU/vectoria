@@ -1,3 +1,11 @@
+#
+# VECTORIA
+#
+# @authors : Luca Babetto, Leonardo Baroncelli, Carolina Berucci, Chiara Malizia, Eric Pascolo, Andrea Proia, Mattia Buzzoni, Michele Visciarelli
+#
+# This file is distributed under the MIT License.
+# See the LICENSE file in the repository root for the full license text.
+#
 import openpyxl
 
 from vectoria_lib.rag.preprocessing.extraction_xlsx import extract_text_from_xlsx_file

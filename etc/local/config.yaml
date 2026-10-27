@@ -1,0 +1,120 @@
+# Host installation with `uv sync --extra api --no-dev`.
+# Run from the repository root; paths below are relative to that directory.
+# Set LLM_BASE_URL, LLM_API_KEY and LLM_MODEL in the root .env.
+# Minimal profile: native extraction, CPU embeddings, no graph/wiki/reranker.
+# Model downloads still require network access on first use.
+vectoria_logs_dir: data/logs
+log_level: INFO
+system_prompts_lang: eng
+models_dir: null
+
+data_ingestion:
+  multiprocessing: false
+  multiprocessing_workers: 1
+  extraction:
+    format: pdf
+    backend: native
+    dump_doc_structure_on_file: false
+    regexes_for_metadata_extraction: []
+  regexes_for_replacement: []
+  chunking:
+    method: recursive
+    chunk_size: 512
+    chunk_overlap: 64
+    separators: ["\n\n", "\n", " ", ""]
+    is_separator_regex: [false, false, false, false]
+    dump_chunks_on_file: false
+    tokenizer_name: sentence-transformers/all-MiniLM-L6-v2
+
+vector_store:
+  name: qdrant
+  model_name: sentence-transformers/all-MiniLM-L6-v2
+  device: cpu
+  normalize_embeddings: true
+  embedding_batch_size: 64
+  collection_name: vectoria
+  # Omit qdrant_url to use local file-based storage.
+  # qdrant_url: http://localhost:6333
+  # qdrant_api_key: ${QDRANT_API_KEY}
+  # qdrant_prefer_grpc: false
+
+retriever:
+  enabled: true
+  top_k: 4
+  search_type: hybrid
+  bm25_weight: 0.5
+  multi_query: false
+  min_per_source: 0
+  mmr_enabled: false
+  mmr_lambda: 0.7
+  mmr_top_k: 0
+
+reranker:
+  enabled: false
+  reranked_top_k: 2
+  model_name: cross-encoder/mmarco-mMiniLMv2-L12-H384-v1
+  device: cpu
+
+full_paragraphs_retriever:
+  enabled: false
+
+# Enhanced profile: install the graph extra and its configured spaCy model first.
+graph_store:
+  enabled: false
+  extraction_device: cpu
+  entity_types: null
+  min_entity_confidence: 0.5
+  min_count: 1
+  min_pmi: 0.0
+  relation_method: cooccurrence
+  relation_extraction: false
+  relation_min_count: 2
+  relation_batch_size: 15
+  spacy_model: it_core_news_sm
+  entity_resolution: false
+  resolution_threshold: 0.92
+
+# Wiki/multi-query calls currently add chat_template_kwargs.enable_thinking=false.
+# Enable only after checking that the upstream endpoint accepts that extension.
+wiki:
+  enabled: false
+  pending_threshold: 5
+  max_topics_per_doc: 3
+  max_topics_per_batch: 8
+  language_normalization: true
+  similarity_threshold: 0.80
+  canonical_topic_language: it
+  synthesis_context_chunks: 4
+  max_page_words: 400
+
+chat_history:
+  enabled: true
+  summarize_after_n_messages: 30
+  max_conv_messages: 20
+  max_tool_messages: 3
+  checkpoint_db_path: data/history/chat_history.db
+  # null reuses the main model, including provider selection.
+  summary_llm: null
+
+agent_guardrails:
+  tool_call_limit:
+    enabled: true
+    run_limit: 8
+    thread_limit: null
+    exit_behavior: continue
+  human_approval:
+    enabled: true
+    tools: [delete_document]
+
+inference_engine:
+  name: openai
+  base_url: ${LLM_BASE_URL}
+  api_key: ${LLM_API_KEY}
+  model_name: ${LLM_MODEL}
+  temperature: 0.0
+  max_tokens: 4096
+  streaming: true
+  request_timeout: ${LLM_TIMEOUT:-120}
+
+llama_server:
+  enabled: false

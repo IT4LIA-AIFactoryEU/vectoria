@@ -48,7 +48,8 @@ RUN uv run python -m spacy download it_core_news_sm
 # The actual volume mounts happen at runtime; pre-creating the dirs ensures
 # the correct owner when Docker initialises an empty named volume.
 RUN mkdir -p /data/index /data/uploads && \
-    chown -R vectoria:vectoria /data /app
+    chown -R vectoria:vectoria /data && \
+    chown vectoria:vectoria /app
 
 USER vectoria
 
@@ -58,7 +59,7 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
     CMD curl -f http://localhost:8000/health || exit 1
 
 # Default command — override INDEX_PATH and CONFIG_PATH via environment or compose
-CMD uv run python bin/vectoria \
+CMD uv run --no-sync python bin/vectoria \
     --config ${CONFIG_PATH:-etc/docker/config.yaml} \
     serve \
     ${INDEX_PATH:+--index-path ${INDEX_PATH}} \
